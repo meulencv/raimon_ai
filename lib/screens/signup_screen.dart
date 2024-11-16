@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,10 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
         password: _passwordController.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registro exitoso. Por favor verifica tu email.')),
-        );
-        Navigator.of(context).pop();
+        Navigator.of(context).pushReplacementNamed('/menu');
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
