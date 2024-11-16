@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -104,6 +106,163 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 
+  double _calculateAffinity(Map<String, dynamic> userScores, Map<String, dynamic> otherScores) {
+    double affinity = 0;
+    double maxPoints = 0;
+
+    // Verificar objetivo común (30 puntos)
+    bool isWinningTeam = userScores['objetivo'] == 'ganar';
+    if (userScores['objetivo'] == otherScores['objetivo']) {
+      affinity += 30;
+    }
+    maxPoints += 30;
+
+    // Experiencia técnica y lenguajes (35 puntos)
+    List<String> userLangs = List<String>.from(userScores['lenguajes'] ?? []);
+    List<String> otherLangs = List<String>.from(otherScores['lenguajes'] ?? []);
+    
+    // Lenguajes en común (15 puntos)
+    int commonLangs = userLangs.where((lang) => otherLangs.contains(lang)).length;
+    affinity += (commonLangs / max(userLangs.length, 1)) * 15;
+    maxPoints += 15;
+
+    // Trabajo en equipo y productividad (25 puntos)
+    if (isWinningTeam) {
+      // Para equipos competitivos, valoramos similitud
+      int teamDiff = (int.parse(userScores['trabajo_equipo'].toString()) - 
+                     int.parse(otherScores['trabajo_equipo'].toString())).abs();
+      int prodDiff = (int.parse(userScores['productividad'].toString()) - 
+                     int.parse(otherScores['productividad'].toString())).abs();
+      
+      if (teamDiff <= 1) affinity += 15;
+      if (prodDiff <= 1) affinity += 10;
+    } else {
+      // Para equipos no competitivos, valoramos creatividad y complementariedad
+      int creativityScore = int.parse(otherScores['creatividad'].toString());
+      affinity += (creativityScore / 5) * 25; // Más peso a la creatividad
+    }
+    maxPoints += 25;
+
+    // Personalidad (10 puntos)
+    List<String> userPersonality = List<String>.from(userScores['personalidad'] ?? []);
+    List<String> otherPersonality = List<String>.from(otherScores['personalidad'] ?? []);
+    int commonTraits = userPersonality
+        .where((trait) => otherPersonality.contains(trait))
+        .length;
+    affinity += (commonTraits / max(userPersonality.length, 1)) * 10;
+    maxPoints += 10;
+
+    return (affinity / maxPoints) * 100;
+  }
+
+  Future<void> _findAffinityMembers() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = supabase.auth.currentUser!.id;
+      
+      // Obtener información del usuario actual
+      final userResult = await supabase
+          .from('users_info')
+          .select()
+          .eq('user_id', userId)
+          .single();
+
+      // Obtener usuarios que buscan equipo
+      final List<dynamic> otherUsers = await supabase
+          .from('users_info')
+          .select()
+          .eq('looking_for_team', true)
+          .neq('user_id', userId);
+
+      // Calcular afinidad con cada usuario
+      List<Map<String, dynamic>> affinities = [];
+      
+      for (var other in otherUsers) {
+        try {
+          if (other['scores'] != null && userResult['scores'] != null) {
+            double affinity = _calculateAffinity(
+              Map<String, dynamic>.from(userResult['scores']), 
+              Map<String, dynamic>.from(other['scores'])
+            );
+            
+            affinities.add({
+              'user_id': other['user_id'],
+              'affinity': affinity,
+              'scores': other['scores']
+            });
+          }
+        } catch (e) {
+          print('Error procesando usuario: ${other['user_id']}, Error: $e');
+          continue;
+        }
+      }
+
+      // Ordenar por afinidad y tomar los 5 mejores
+      affinities.sort((a, b) => b['affinity'].compareTo(a['affinity']));
+      final topMatches = affinities.take(5).toList();
+
+      if (topMatches.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontraron participantes afines')),
+        );
+        return;
+      }
+
+      // Mostrar resultados
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Participantes Afines'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: topMatches.length,
+                itemBuilder: (context, index) {
+                  final match = topMatches[index];
+                  return ListTile(
+                    title: Text('Usuario ${index + 1}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Afinidad: ${match['affinity'].toStringAsFixed(1)}%'),
+                        Text('ID: ${match['user_id']}'),
+                      ],
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        setState(() {
+                          _teamMembers.add(match['user_id']);
+                        });
+                        Navigator.pop(context);
+                        _showCreateTeamDialog();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error calculando afinidades: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error buscando participantes afines: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   void _showCreateTeamDialog() {
     showDialog(
       context: context,
@@ -128,12 +287,8 @@ class _MenuScreenState extends State<MenuScreen> {
               const SizedBox(height: 10),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: Implementar búsqueda de participantes afines
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Función de búsqueda en desarrollo'),
-                    ),
-                  );
+                  Navigator.pop(context);
+                  _findAffinityMembers();
                 },
                 child: const Text('Buscar Participantes Afines'),
               ),
