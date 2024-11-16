@@ -26,20 +26,17 @@ class ResultsScreen extends StatelessWidget {
               const SizedBox(height: 30),
               const Text(
                 '¡Datos recopilados con éxito!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              Text(
-                'Nombre: ${args['firstName']}',
-                style: const TextStyle(fontSize: 18),
-              ),
-              Text(
-                'Apellido: ${args['lastName']}',
-                style: const TextStyle(fontSize: 18),
-              ),
+              // Mostrar todos los datos recopilados
+              ...args.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '${e.key}: ${e.value}',
+                  style: const TextStyle(fontSize: 18),
+                ),
+              )),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: () => Navigator.pushReplacementNamed(context, '/'),
