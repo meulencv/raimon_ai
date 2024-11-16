@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/menu'); // Cambiado de '/home' a '/menu'
+        Navigator.of(context).pushReplacementNamed('/introduction');
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

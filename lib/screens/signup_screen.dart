@@ -25,7 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
         password: _passwordController.text,
       );
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/menu');
+        Navigator.of(context).pushReplacementNamed('/introduction');
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

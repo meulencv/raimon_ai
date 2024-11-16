@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/straico_api.dart';
+import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -13,6 +14,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<MessageBubble> _messages = [];
   final StraicoApi _api = StraicoApi();
   bool _isLoading = false;
+  String? firstName;
+  String? lastName;
+  
+  final String initialPrompt = "Hola! Soy Raimon, tu asistente personal. Me gustaría conocerte mejor. ¿Cómo te llamas?";
+
+  @override
+  void initState() {
+    super.initState();
+    Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _messages.add(MessageBubble(
+          content: initialPrompt,
+          isUser: false,
+        ));
+      });
+    });
+  }
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
@@ -28,21 +46,100 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
 
     try {
-      final response = await _api.getCompletion(userMessage);
-      setState(() {
-        _messages.add(MessageBubble(
-          content: response,
-          isUser: false,
-        ));
-      });
+      String prompt = """
+      Eres Raimon, un asistente conversacional experto. Tu misión es obtener el nombre y apellidos del usuario de forma estratégica.
+
+      OBJETIVO PRINCIPAL:
+      Obtener nombre y apellidos del usuario siguiendo una estrategia conversacional en 3 pasos:
+
+      PASO 1 - Si no tienes el nombre:
+      - Haz preguntas que naturalmente lleven a que el usuario mencione su nombre
+      - Ejemplos: "¿Cómo te gusta que te llamen?", "¿Te han puesto algún apodo?"
+      - Si detectas un nombre en la respuesta, confírmalo
+
+      PASO 2 - Si tienes el nombre pero no el apellido:
+      - Usa el nombre para personalizar y pregunta por la familia
+      - Ejemplos: "[nombre], ¿vienes de una familia grande?", "¿Tu apellido tiene alguna historia?"
+
+      PASO 3 - Confirmación:
+      - Cuando tengas ambos datos, confírmalos naturalmente
+      - Ejemplo: "Entonces eres [nombre] [apellido], ¿verdad?"
+
+      REGLAS IMPORTANTES:
+      1. NO AVANCES al siguiente paso hasta confirmar el dato actual
+      2. Si el usuario evade, INSISTE de forma amable pero firme
+      3. Usa estos marcadores exactos:
+         - [NOMBRE:valor] cuando confirmes un nombre
+         - [APELLIDO:valor] cuando confirmes un apellido
+         - [COMPLETO] cuando tengas ambos confirmados
+
+      ESTADO ACTUAL:
+      - Nombre: ${firstName ?? 'pendiente'}
+      - Apellido: ${lastName ?? 'pendiente'}
+
+      CONTEXTO PREVIO:
+      ${_messages.map((m) => "${m.isUser ? 'Usuario' : 'Raimon'}: ${m.content}").join('\n')}
+
+      NUEVO MENSAJE: $userMessage
+      """;
+
+      final response = await _api.getCompletion(prompt);
+      
+      if (mounted) {
+        _processResponseData(response);
+        
+        String cleanResponse = response
+            .replaceAll(RegExp(r'\[NOMBRE:.*?\]'), '')
+            .replaceAll(RegExp(r'\[APELLIDO:.*?\]'), '')
+            .replaceAll('[COMPLETO]', '')
+            .trim();
+
+        setState(() {
+          _messages.add(MessageBubble(
+            content: cleanResponse,
+            isUser: false,
+          ));
+        });
+
+        if (firstName != null && lastName != null && response.contains('[COMPLETO]')) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.pushReplacementNamed(
+                context,
+                '/results',
+                arguments: <String, String>{  // Especificamos el tipo explícitamente
+                  'firstName': firstName ?? '',
+                  'lastName': lastName ?? '',
+                },
+              );
+            }
+          });
+        }
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al enviar mensaje')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al enviar mensaje')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _processResponseData(String response) {
+    // Extraer nombre
+    final nombreMatch = RegExp(r'\[NOMBRE:(.*?)\]').firstMatch(response);
+    if (nombreMatch != null && nombreMatch.group(1) != null) {
+      firstName = nombreMatch.group(1)!.trim();
+    }
+
+    // Extraer apellido
+    final apellidoMatch = RegExp(r'\[APELLIDO:(.*?)\]').firstMatch(response);
+    if (apellidoMatch != null && apellidoMatch.group(1) != null) {
+      lastName = apellidoMatch.group(1)!.trim();
     }
   }
 

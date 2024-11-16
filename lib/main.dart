@@ -5,10 +5,12 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/menu_screen.dart'; // Actualizar import
 import 'screens/chat_screen.dart';
+import 'screens/introduction_screen.dart';
+import 'screens/results_screen.dart';
 
 const supabaseUrl = 'https://gkhunoslayeiitipmkkz.supabase.co';
 const supabaseKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdraHVub3NsYXllaWl0aXBta2twa2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE3NTU3MzksImV4cCI6MjA0NzMzMTczOX0.Gr13V2YCbzPXRh3FjY4lldZeVA2agdF8PTRkv7_B1jk';
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdraHVub3NsYXllaWl0aXBta2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE3NTU3MzksImV4cCI6MjA0NzMzMTczOX0.Gr13V2YCbzPXRh3FjY4lldZeVA2agdF8PTRkv7_B1jk';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +35,9 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/menu': (context) => const MenuScreen(), // Cambiar ruta de home a menu
+        '/introduction': (context) => const IntroductionScreen(),
         '/chat': (context) => const ChatScreen(),
+        '/results': (context) => const ResultsScreen(),
       },
     );
   }
