@@ -79,6 +79,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final StraicoApi _api = StraicoApi();
   bool _isLoading = false;
   late final UserInfo _userInfo;
+  int _wordCount = 0;
 
   String? _extractJsonFromText(String text) {
     // Buscar contenido entre llaves, manejando anidación básica
@@ -204,15 +205,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _saveUserDataToSupabase() async {
     try {
       final userId = supabase.auth.currentUser!.id;
-      
+
       // Guardar directamente en users_info
-      await supabase
-          .from('users_info')
-          .upsert({
-            'user_id': userId,
-            'scores': _userInfo.data,
-            'looking_for_team': true
-          });
+      await supabase.from('users_info').upsert({
+        'user_id': userId,
+        'scores': _userInfo.data,
+        'looking_for_team': true
+      });
 
       print('✅ Datos guardados en Supabase exitosamente');
     } catch (e) {
@@ -295,13 +294,28 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxBubbleWidth = screenWidth * 0.8;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: const Text(
+          'RAIMON',
+          style: TextStyle(
+            color: Color(0xFF2A9D8F),
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF2A9D8F)),
+      ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
@@ -310,16 +324,22 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? Alignment.centerRight
                       : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.all(12),
+                    constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: message['isUser'] ? Colors.blue : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(15),
+                      color: message['isUser']
+                          ? const Color(0xFF2A9D8F)
+                          : const Color(0xFF2A9D8F).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       message['text'],
                       style: TextStyle(
-                        color: message['isUser'] ? Colors.white : Colors.black,
+                        color:
+                            message['isUser'] ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -327,24 +347,92 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          if (_isLoading) const LinearProgressIndicator(),
-          Padding(
-            padding: const EdgeInsets.all(8),
+          if (_isLoading)
+            const LinearProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A9D8F)),
+              backgroundColor: Color(0xFFE8F5E9),
+            ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe un mensaje...',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A9D8F).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: const InputDecoration(
+                            hintText: 'Escribe un mensaje...',
+                            hintStyle: TextStyle(color: Colors.black54),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                          onChanged: (text) {
+                            setState(() {
+                              _wordCount = text
+                                  .trim()
+                                  .split(RegExp(r'\s+'))
+                                  .where((word) => word.isNotEmpty)
+                                  .length;
+                            });
+                          },
+                        ),
+                      ),
+                      Container(
+                        height: 3,
+                        width: MediaQuery.of(context).size.width - 80,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              _getProgressColor(_wordCount),
+                              _getProgressColor(_wordCount).withOpacity(0.3),
+                            ],
+                            stops: [
+                              _wordCount < 150 ? _wordCount / 150 : 1.0,
+                              1.0,
+                            ],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$_wordCount palabras',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _getProgressColor(_wordCount),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
+                const SizedBox(width: 12),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF2A9D8F),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendMessage,
+                  ),
                 ),
               ],
             ),
@@ -382,5 +470,18 @@ class _ChatScreenState extends State<ChatScreen> {
     Usuario: $userMessage
     
     Asistente:""";
+  }
+
+  Color _getProgressColor(int wordCount) {
+    if (wordCount < 50) {
+      // Interpolar entre rojo y amarillo
+      double t = wordCount / 50.0;
+      return Color.lerp(Colors.red, Colors.yellow, t) ?? Colors.red;
+    } else if (wordCount < 150) {
+      // Interpolar entre amarillo y verde
+      double t = (wordCount - 50) / 100.0;
+      return Color.lerp(Colors.yellow, Colors.green, t) ?? Colors.yellow;
+    }
+    return Colors.green;
   }
 }
