@@ -39,47 +39,106 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final buttonWidth = screenWidth > 600 ? 400.0 : screenWidth * 0.85;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Registro')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingrese su email';
-                  }
-                  return null;
-                },
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: buttonWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'logo.png',
+                      width: 120,
+                      height: 120,
+                    ),
+                    const SizedBox(height: 40),
+                    
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor ingrese su email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor ingrese su contraseña';
+                        }
+                        if (value.length < 6) {
+                          return 'La contraseña debe tener al menos 6 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    SizedBox(
+                      width: buttonWidth,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _signUp,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2A9D8F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'Crear Cuenta',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        '¿Ya tienes cuenta? Inicia sesión',
+                        style: TextStyle(
+                          color: Color(0xFF2A9D8F),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingrese su contraseña';
-                  }
-                  if (value.length < 6) {
-                    return 'La contraseña debe tener al menos 6 caracteres';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _signUp,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Registrarse'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
