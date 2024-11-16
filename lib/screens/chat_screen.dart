@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/straico_api.dart';
 import 'dart:convert';
+import 'menu_screen.dart';
 
 class UserInfo {
   Map<String, dynamic> data = {};
@@ -137,8 +138,16 @@ class _ChatScreenState extends State<ChatScreen> {
         .join('\n');
 
     final prompt = """
-    Como psicólogo experto, analiza profundamente el discurso del usuario.
-    
+    Como psicólogo experto, analiza el discurso del usuario y extrae ÚNICAMENTE la siguiente información:
+
+    1. experiencia_tecnica: Experiencia en programación, cursos avanzados, participación en hackatons
+    2. lenguajes: Lista de lenguajes de programación que conoce
+    3. creatividad: Valor numérico del 1-5 basado en capacidad de solucionar problemas y apertura mental
+    4. productividad: Valor numérico del 1-5 basado en ritmo de trabajo y responsabilidad
+    5. trabajo_equipo: Valor numérico del 1-5 basado en capacidad de coordinación con otros
+    6. objetivo: ÚNICAMENTE puede ser "ganar" o "no ganar"
+    7. personalidad: Lista de intereses y rasgos de personalidad relevantes
+
     CONTEXTO COMPLETO:
     $userMessages
 
@@ -147,20 +156,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
     CAMPOS PENDIENTES: ${_userInfo.pendingFields.join(', ')}
 
-    ANÁLISIS REQUERIDO:
-    1. Interpretación profunda del lenguaje utilizado
-    2. Patrones de comportamiento implícitos
-    3. Indicadores de personalidad y estilo de trabajo
-    4. Motivaciones subyacentes
-
-    Si algún campo queda sin información clara, no lo rellenes, no lo añadas en el json:
-    - experiencia_tecnica: "Desarrollador con interés en crecimiento profesional"
-    - lenguajes: ["separados", "por", "comas"] (si no hay pregunta explicitamente)
-    - creatividad: "3"
-    - productividad: "3"
-    - trabajo_equipo: "3"
-    - objetivo: "SOLO PUEDE SER no ganar o ganar, una de las dos palabras"
-    - personalidad: ["adaptable", "analítico", "curioso"]
+    IMPORTANTE:
+    - Devolver SOLO estos 7 campos
+    - Ignorar cualquier otra información
+    - Si no hay información clara para un campo, no incluirlo en el JSON
 
     Responde con JSON en formato <json> </json>
     """;
@@ -173,8 +172,15 @@ class _ChatScreenState extends State<ChatScreen> {
           ?.group(1);
 
       if (jsonMatch != null) {
-        print('JSON extraído de la respuesta: $jsonMatch');
-        return json.decode(jsonMatch);
+        final Map<String, dynamic> data = json.decode(jsonMatch);
+        // Asegurar que los valores numéricos estén entre 1-5
+        ['creatividad', 'productividad', 'trabajo_equipo'].forEach((field) {
+          if (data.containsKey(field)) {
+            final value = int.tryParse('${data[field]}') ?? 3;
+            data[field] = value.clamp(1, 5).toString();
+          }
+        });
+        return data;
       }
 
       // Si no hay tags, buscar cualquier JSON en el texto
@@ -210,26 +216,32 @@ class _ChatScreenState extends State<ChatScreen> {
         analysis.forEach(_userInfo.updateField);
 
         if (_userInfo.isComplete()) {
-          print(
-              '✅ Información completa del usuario: ${json.encode(_userInfo.data)}');
+          print('✅ Información completa del usuario: ${json.encode(_userInfo.data)}');
           setState(() {
             _messages.add({
-              'text': 'Gracias por toda la información proporcionada.',
+              'text': 'Gracias por toda la información proporcionada. ¡Te dirijo al menú principal!',
               'isUser': false
             });
+          });
+          // Esperar 2 segundos y navegar al menú
+          Future.delayed(Duration(seconds: 2), () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MenuScreen(),
+              ),
+            );
           });
         } else {
           final nextQuestion = await _generateQuestion();
           setState(() {
             _messages.add({
-              'text':
-                  'Para conocerte mejor, me gustaría que respondas a lo siguiente:\n\n$nextQuestion',
+              'text': 'Para conocerte mejor, me gustaría que respondas a lo siguiente:\n\n$nextQuestion',
               'isUser': false
             });
           });
         }
       } else {
-        // Normal chat flow when all info is collected
         final promptWithContext = _buildPromptWithContext(message);
         final response = await _api.getCompletion(promptWithContext);
         setState(() {
@@ -322,6 +334,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     super.dispose();
+  }
+
+  int _clampValue(int value) {
+    return value.clamp(1, 5);
   }
 
   String _buildPromptWithContext(String userMessage) {
