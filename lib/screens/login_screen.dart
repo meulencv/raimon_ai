@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:raimon_ai/screens/team_confirmed_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -44,23 +45,40 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
       
+      // Primero verificar si el usuario pertenece a un equipo
+      final teamData = await Supabase.instance.client
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (teamData != null) {
+        // Si pertenece a un equipo, mostrar pantalla de confirmación
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => TeamConfirmedScreen(
+                teamId: teamData['team_id'].toString(),
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      // Si no tiene equipo, continuar con el flujo normal
       final userData = await Supabase.instance.client
           .from('users_info')
           .select()
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (userData != null) {
-        // Si existe información del usuario, ir directamente al menú
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/menu');
-          return;
-        }
-      }
-      
-      // Si no existe información, seguir el flujo normal
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/introduction');
+        if (userData != null) {
+          Navigator.of(context).pushReplacementNamed('/menu');
+        } else {
+          Navigator.of(context).pushReplacementNamed('/introduction');
+        }
       }
     } catch (e) {
       print('Error verificando usuario: $e');

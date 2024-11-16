@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:raimon_ai/screens/team_confirmed_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -15,11 +16,40 @@ class _MenuScreenState extends State<MenuScreen> {
   bool _isLookingForTeam = false;
   final List<String> _teamMembers = [];
   bool _isLoading = false;
+  final TextEditingController _teamNameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _checkTeamMembership();
     _loadUserStatus();
+    // Añadir el usuario actual al equipo
+    final currentUserId = supabase.auth.currentUser!.id;
+    _teamMembers.add(currentUserId);
+  }
+
+  Future<void> _checkTeamMembership() async {
+    try {
+      final userId = supabase.auth.currentUser!.id;
+      final teamData = await supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (teamData != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TeamConfirmedScreen(
+              teamId: teamData['team_id'].toString(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error verificando membresía: $e');
+    }
   }
 
   Future<void> _loadUserStatus() async {
@@ -69,7 +99,7 @@ class _MenuScreenState extends State<MenuScreen> {
   Future<void> _showAddMemberDialog() async {
     if (_teamMembers.length >= 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El grupo ya tiene el máximo de participantes')),
+        const SnackBar(content: Text('El equipo ya tiene el máximo de miembros (4)')),
       );
       return;
     }
@@ -78,12 +108,41 @@ class _MenuScreenState extends State<MenuScreen> {
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Añadir participante'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: "Introduce el ID del participante",
-          ),
+        title: const Text('Añadir miembro'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: "ID del miembro",
+                labelText: "ID del miembro",
+              ),
+            ),
+            if (_teamMembers.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text('Miembros actuales:'),
+              ...(_teamMembers.map((member) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(member),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: () {
+                            setState(() {
+                              _teamMembers.remove(member);
+                            });
+                            Navigator.pop(context);
+                            _showAddMemberDialog();
+                          },
+                        ),
+                      ],
+                    ),
+                  )).toList()),
+            ],
+          ],
         ),
         actions: [
           TextButton(
@@ -93,10 +152,17 @@ class _MenuScreenState extends State<MenuScreen> {
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
+                if (_teamMembers.contains(controller.text)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Este miembro ya está en el equipo')),
+                  );
+                  return;
+                }
                 setState(() {
                   _teamMembers.add(controller.text);
                 });
                 Navigator.pop(context);
+                _showCreateTeamDialog();
               }
             },
             child: const Text('Añadir'),
@@ -178,6 +244,9 @@ class _MenuScreenState extends State<MenuScreen> {
       List<Map<String, dynamic>> affinities = [];
       
       for (var other in otherUsers) {
+        // Verificar si el usuario ya está en el equipo
+        if (_teamMembers.contains(other['user_id'])) continue;
+
         try {
           if (other['scores'] != null && userResult['scores'] != null) {
             double affinity = _calculateAffinity(
@@ -197,23 +266,24 @@ class _MenuScreenState extends State<MenuScreen> {
         }
       }
 
+      // Si no hay usuarios disponibles después de filtrar
+      if (affinities.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay participantes afines disponibles')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
       // Ordenar por afinidad y tomar los 5 mejores
       affinities.sort((a, b) => b['affinity'].compareTo(a['affinity']));
       final topMatches = affinities.take(5).toList();
 
-      if (topMatches.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se encontraron participantes afines')),
-        );
-        return;
-      }
-
-      // Mostrar resultados
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Participantes Afines'),
+            title: const Text('Participantes Afines Disponibles'),
             content: SizedBox(
               width: double.maxFinite,
               child: ListView.builder(
@@ -233,11 +303,13 @@ class _MenuScreenState extends State<MenuScreen> {
                     trailing: IconButton(
                       icon: const Icon(Icons.add),
                       onPressed: () {
-                        setState(() {
-                          _teamMembers.add(match['user_id']);
-                        });
-                        Navigator.pop(context);
-                        _showCreateTeamDialog();
+                        if (!_teamMembers.contains(match['user_id'])) {
+                          setState(() {
+                            _teamMembers.add(match['user_id']);
+                          });
+                          Navigator.pop(context);
+                          _showCreateTeamDialog();
+                        }
                       },
                     ),
                   );
@@ -263,34 +335,170 @@ class _MenuScreenState extends State<MenuScreen> {
     }
   }
 
+  Future<void> _createTeam() async {
+    if (_teamMembers.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Se necesitan al menos 2 miembros para crear un equipo')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // 1. Crear el equipo
+      final teamResponse = await supabase
+          .from('teams')
+          .insert({
+            'name': _teamNameController.text,
+          })
+          .select()
+          .single();
+
+      // 2. Añadir miembros al equipo
+      final teamId = teamResponse['id'];
+      final memberInserts = _teamMembers.map((userId) => {
+            'team_id': teamId,
+            'user_id': userId,
+          }).toList();
+
+      await supabase.from('team_members').insert(memberInserts);
+
+      // 3. Navegar a la pantalla de confirmación
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TeamConfirmedScreen(
+              teamId: teamId.toString(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creando el equipo: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showConfirmTeamDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Creación de Equipo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _teamNameController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del Equipo',
+                hintText: 'Introduce el nombre del equipo',
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Miembros del equipo:'),
+            ...(_teamMembers.map((member) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${member == supabase.auth.currentUser!.id ? "$member (Tú)" : member}',
+                  ),
+                ))),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _createTeam,
+            child: _isLoading
+                ? const CircularProgressIndicator()
+                : const Text('Crear Equipo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showCreateTeamDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Crear Grupo'),
+        title: const Text('Tu Equipo'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Participantes:'),
-            const SizedBox(height: 10),
-            if (_teamMembers.isEmpty)
-              const Text('No hay participantes añadidos')
-            else
-              ...(_teamMembers.map((member) => Text('• $member')).toList()),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _showAddMemberDialog,
-              child: const Text('Añadir Participante'),
+            if (_teamMembers.length <= 1)
+              const Text('Solo estás tú en el equipo')
+            else ...[
+              const Text('Miembros del equipo:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ..._teamMembers.map((member) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(member == supabase.auth.currentUser!.id ? "$member (Tú)" : member),
+                    if (member != supabase.auth.currentUser!.id)
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () {
+                          setState(() {
+                            _teamMembers.remove(member);
+                          });
+                          Navigator.pop(context);
+                          _showCreateTeamDialog();
+                        },
+                      ),
+                  ],
+                ),
+              )),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                if (_teamMembers.length < 4) ...[
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showAddMemberDialog();
+                      },
+                      child: const Text('Añadir Miembro'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _findAffinityMembers();
+                      },
+                      child: const Text('Buscar por Afinidad'),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            if (_teamMembers.length < 4) ...[
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _findAffinityMembers();
-                },
-                child: const Text('Buscar Participantes Afines'),
+            if (_teamMembers.length > 1) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showConfirmTeamDialog();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                  ),
+                  child: const Text('Crear Equipo'),
+                ),
               ),
             ],
           ],
