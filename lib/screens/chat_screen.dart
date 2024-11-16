@@ -210,7 +210,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await supabase.from('users_info').upsert({
         'user_id': userId,
         'scores': _userInfo.data,
-        'looking_for_team': true
+        'looking_for_team': false
       });
 
       print('✅ Datos guardados en Supabase exitosamente');
