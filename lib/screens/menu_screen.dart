@@ -30,15 +30,8 @@ class MenuScreen extends StatelessWidget {
         return;
       }
     } catch (e) {
-      // Si no encuentra equipo, creamos uno nuevo
-      await supabase.from('teams').insert({
-        'user_id': supabase.auth.currentUser!.id,
-      });
-
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Equipo creado exitosamente')),
-        );
+        Navigator.pushNamed(context, '/chat');
       }
     }
   }
