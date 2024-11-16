@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/introduction');
+        await _checkAndNavigate();
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,6 +37,36 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _checkAndNavigate() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      
+      final userData = await Supabase.instance.client
+          .from('users_info')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (userData != null) {
+        // Si existe información del usuario, ir directamente al menú
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/menu');
+          return;
+        }
+      }
+      
+      // Si no existe información, seguir el flujo normal
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/introduction');
+      }
+    } catch (e) {
+      print('Error verificando usuario: $e');
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/introduction');
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/straico_api.dart';
 import 'dart:convert';
 import 'menu_screen.dart';
@@ -72,6 +73,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   final StraicoApi _api = StraicoApi();
@@ -108,7 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
     - Para objetivo/personalidad: Examina motivaciones profundas y valores
 
     INSTRUCCIONES ESPECIALES:
-    1. Formula entre 2 y 4 preguntas interrelacionadas que:
+    1. Formula entre 1 y2  preguntas interrelacionadas que:
        - Sean abiertas y reflexivas
        - Generen introspección
        - Eviten respuestas simples sí/no
@@ -119,7 +121,7 @@ class _ChatScreenState extends State<ChatScreen> {
        • Segunda pregunta
        [etc.]
 
-    IMPORTANTE: Máximo 4 preguntas, mínimo 2.
+    IMPORTANTE: Máximo 2 preguntas, mínimo 1.
     Las preguntas deben estar relacionadas entre sí y fluir naturalmente.
     
     Responde SOLO con las preguntas en formato de lista con viñetas (•).
@@ -199,6 +201,26 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _saveUserDataToSupabase() async {
+    try {
+      final userId = supabase.auth.currentUser!.id;
+      
+      // Guardar directamente en users_info
+      await supabase
+          .from('users_info')
+          .upsert({
+            'user_id': userId,
+            'scores': _userInfo.data,
+            'looking_for_team': true
+          });
+
+      print('✅ Datos guardados en Supabase exitosamente');
+    } catch (e) {
+      print('Error guardando datos en Supabase: $e');
+      throw e;
+    }
+  }
+
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
@@ -216,10 +238,11 @@ class _ChatScreenState extends State<ChatScreen> {
         analysis.forEach(_userInfo.updateField);
 
         if (_userInfo.isComplete()) {
-          print('✅ Información completa del usuario: ${json.encode(_userInfo.data)}');
+          await _saveUserDataToSupabase(); // Guardar datos antes de navegar
           setState(() {
             _messages.add({
-              'text': 'Gracias por toda la información proporcionada. ¡Te dirijo al menú principal!',
+              'text':
+                  'Gracias por toda la información proporcionada. ¡Te dirijo al menú principal!',
               'isUser': false
             });
           });
@@ -236,7 +259,8 @@ class _ChatScreenState extends State<ChatScreen> {
           final nextQuestion = await _generateQuestion();
           setState(() {
             _messages.add({
-              'text': 'Para conocerte mejor, me gustaría que respondas a lo siguiente:\n\n$nextQuestion',
+              'text':
+                  'Para conocerte mejor, me gustaría que respondas a lo siguiente:\n\n$nextQuestion',
               'isUser': false
             });
           });
@@ -250,7 +274,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al procesar mensaje')),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     } finally {
       setState(() => _isLoading = false);

@@ -15,23 +15,20 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
 
   Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
     try {
+      setState(() => _isLoading = true);
+      
       await Supabase.instance.client.auth.signUp(
         email: _emailController.text,
         password: _passwordController.text,
       );
+
       if (mounted) {
+        // Usuario nuevo siempre va al flujo de introducción
         Navigator.of(context).pushReplacementNamed('/introduction');
       }
-    } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
     } catch (e) {
+      // ...existing error handling code...
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error inesperado')),
       );
