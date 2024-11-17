@@ -92,46 +92,33 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_userInfo.pendingFields.isEmpty) return '';
 
     final prompt = """
-    Actúa como un psicólogo experto con experiencia en perfiles tecnológicos.
+    Actúa como un psicólogo experto en perfiles tecnológicos que está realizando una entrevista inicial.
     
     CONTEXTO ACTUAL:
     - Campos pendientes: ${_userInfo.pendingFields.join(', ')}
     - Información obtenida: ${json.encode(_userInfo.data)}
 
-    TÉCNICAS DE ENTREVISTA PSICOLÓGICA A UTILIZAR:
-    1. Preguntas abiertas reflexivas
-    2. Técnica del embudo (de lo general a lo específico)
-    3. Escucha activa y seguimiento
-    4. Exploración de patrones de comportamiento
+    SI ES LA PRIMERA PREGUNTA (no hay información previa), USA EXACTAMENTE ESTE FORMATO:
+    ¡Hola! 👋 Me gustaría conocerte mejor para formar el equipo perfecto para el hackathon. Cuéntame sobre ti:
 
-    GUÍA DE PROFUNDIZACIÓN PSICOLÓGICA:
-    - Para experiencia_tecnica/lenguajes: Explora la conexión emocional con la tecnología
-    - Para creatividad/productividad: Analiza patrones de resolución de problemas
-    - Para trabajo_equipo: Investiga dinámicas sociales y roles preferidos
-    - Para objetivo/personalidad: Examina motivaciones profundas y valores
-
-    INSTRUCCIONES ESPECIALES:
-    1. Formula entre 1 y2  preguntas interrelacionadas que:
-       - Sean abiertas y reflexivas
-       - Generen introspección
-       - Eviten respuestas simples sí/no
-       - Inviten a compartir experiencias personales
-    2. Las preguntas deben seguir un orden lógico y estar conectadas temáticamente
-    3. Formato de respuesta:
-       • Primera pregunta
-       • Segunda pregunta
-       [etc.]
-
-    IMPORTANTE: Máximo 2 preguntas, mínimo 1.
-    Las preguntas deben estar relacionadas entre sí y fluir naturalmente.
+    • ¿Cuál es tu experiencia en programación? Menciona tus proyectos favoritos, los lenguajes que dominas, y cualquier hackathon o evento tech en el que hayas participado.
     
-    Responde SOLO con las preguntas en formato de lista con viñetas (•).
+    • Cuando te enfrentas a desafíos técnicos, ¿cómo los abordas? Cuéntame sobre algún problema complejo que hayas resuelto y cómo gestionas tu tiempo y energía en proyectos intensivos.
+    
+    • ¿Qué te motiva a participar en este hackathon? ¿Buscas principalmente ganar o es más importante para ti la experiencia? Háblame también sobre cómo te desenvuelves trabajando en equipo.
+
+    PARA PREGUNTAS POSTERIORES:
+    1. Formula 1-2 preguntas basadas en la información faltante
+    2. Usa un tono amigable y motivador
+    3. Evita preguntas sí/no
+    4. Relaciona las preguntas con temas tecnológicos
+
+    IMPORTANTE: Si es la primera pregunta, usa EXACTAMENTE el formato proporcionado arriba.
+    Para preguntas posteriores, máximo 2 preguntas, mínimo 1.
     """;
 
     final questions = await _api.getCompletion(prompt);
-
-    // Dar formato al texto para que se vea mejor en el chat
-    return questions.trim().replaceAll('•', '\n•');
+    return questions.trim();
   }
 
   Future<Map<String, dynamic>> _analyzeResponse(String response) async {
@@ -141,52 +128,55 @@ class _ChatScreenState extends State<ChatScreen> {
         .join('\n');
 
     final prompt = """
-    Como psicólogo experto, analiza el discurso del usuario y extrae ÚNICAMENTE la siguiente información:
+    Como psicólogo experto y analista de perfiles tecnológicos, analiza el discurso del usuario y:
+    1. Extrae información explícita mencionada
+    2. Predice/infiere los campos faltantes basándote en patrones, estilo de comunicación y contexto
 
-    1. experiencia_tecnica: Experiencia en programación, cursos avanzados, participación en hackatons
-    2. lenguajes: Lista de lenguajes de programación que conoce
-    3. creatividad: Valor numérico del 1-5 basado en capacidad de solucionar problemas y apertura mental
-    4. productividad: Valor numérico del 1-5 basado en ritmo de trabajo y responsabilidad
-    5. trabajo_equipo: Valor numérico del 1-5 basado en capacidad de coordinación con otros
-    6. objetivo: ÚNICAMENTE puede ser "ganar" o "no ganar"
-    7. personalidad: Lista de intereses y rasgos de personalidad relevantes
+    RESPUESTA DEL USUARIO:
+    $response
+
+    IMPORTANTE:
+    - Devuelve TODOS los campos, usando predicción para los no mencionados explícitamente
+    - Usa el contexto y patrones para hacer predicciones realistas
+
+    REQUERIDO (usa predicción si no hay información explícita):
+    1. experiencia_tecnica: Experiencia en programación, descripción detallada
+    2. lenguajes: Lista de lenguajes de programación
+    3. creatividad: Valor 1-5
+    4. productividad: Valor 1-5
+    5. trabajo_equipo: Valor 1-5
+    6. objetivo: "ganar" o "no ganar"
+    7. personalidad: Lista de rasgos e intereses
 
     CONTEXTO COMPLETO:
     $userMessages
 
-    ÚLTIMA RESPUESTA:
-    $response
-
-    CAMPOS PENDIENTES: ${_userInfo.pendingFields.join(', ')}
-
-    IMPORTANTE:
-    - Devolver SOLO estos 7 campos
-    - Ignorar cualquier otra información
-    - Si no hay información clara para un campo, no incluirlo en el JSON
-
     Responde con JSON en formato <json> </json>
+    Incluye TODOS los campos, usando predicción cuando sea necesario.
     """;
 
     final aiResponse = await _api.getCompletion(prompt);
     try {
-      // Intentar extraer JSON de la respuesta
       final jsonMatch = RegExp(r'<json>(.*?)</json>', dotAll: true)
           .firstMatch(aiResponse)
           ?.group(1);
 
       if (jsonMatch != null) {
         final Map<String, dynamic> data = json.decode(jsonMatch);
-        // Asegurar que los valores numéricos estén entre 1-5
+        // Normalizar valores numéricos
         ['creatividad', 'productividad', 'trabajo_equipo'].forEach((field) {
           if (data.containsKey(field)) {
-            final value = int.tryParse('${data[field]}') ?? 3;
+            final value = int.tryParse(
+                    '${data[field]}'.replaceAll(RegExp(r'[^\d]'), '')) ??
+                3;
             data[field] = value.clamp(1, 5).toString();
           }
         });
+        _userInfo.pendingFields
+            .clear(); // Limpiar campos pendientes ya que predecimos todo
         return data;
       }
 
-      // Si no hay tags, buscar cualquier JSON en el texto
       final jsonInText = _extractJsonFromText(aiResponse);
       if (jsonInText != null) {
         print('JSON encontrado en el texto: $jsonInText');
@@ -231,44 +221,24 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
 
     try {
-      if (!_userInfo.isComplete()) {
-        final analysis = await _analyzeResponse(message);
-        print('Analizando respuesta: ${json.encode(analysis)}');
-        analysis.forEach(_userInfo.updateField);
+      final analysis = await _analyzeResponse(message);
+      print('Analizando respuesta: ${json.encode(analysis)}');
+      analysis.forEach(_userInfo.updateField);
 
-        if (_userInfo.isComplete()) {
-          await _saveUserDataToSupabase(); // Guardar datos antes de navegar
-          setState(() {
-            _messages.add({
-              'text':
-                  'Gracias por toda la información proporcionada. ¡Te dirijo al menú principal!',
-              'isUser': false
-            });
-          });
-          // Esperar 2 segundos y navegar al menú
-          Future.delayed(Duration(seconds: 2), () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MenuScreen(),
-              ),
-            );
-          });
-        } else {
-          final nextQuestion = await _generateQuestion();
-          setState(() {
-            _messages.add({
-              'text':
-                  'Para conocerte mejor, me gustaría que respondas a lo siguiente:\n\n$nextQuestion',
-              'isUser': false
-            });
-          });
-        }
-      } else {
-        final promptWithContext = _buildPromptWithContext(message);
-        final response = await _api.getCompletion(promptWithContext);
+      if (_userInfo.isComplete()) {
+        await _saveUserDataToSupabase();
         setState(() {
-          _messages.add({'text': response, 'isUser': false});
+          _messages.add({
+            'text':
+                'Gracias por compartir tu información. ¡Te dirijo al menú principal!',
+            'isUser': false
+          });
+        });
+        Future.delayed(Duration(seconds: 2), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MenuScreen()),
+          );
         });
       }
     } catch (e) {
