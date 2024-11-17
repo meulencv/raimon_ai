@@ -916,7 +916,7 @@ class _MenuScreenState extends State<MenuScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2A9D8F),
                 ),
-                child: const Text('Cerrar'),
+                child: const Text('Cerrar', style: TextStyle(color: Colors.white),),
               ),
             ],
           ),
