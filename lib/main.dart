@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:raimon_ai/screens/initial_form_screen.dart';
+import 'package:raimon_ai/screens/qr_scanner_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -30,7 +31,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      initialRoute: '/',  // Volver a la ruta inicial
+      initialRoute: '/', // Volver a la ruta inicial
       routes: {
         '/': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
         '/chat': (context) => const ChatScreen(),
         '/results': (context) => const ResultsScreen(),
         '/initial_form': (context) => const InitialFormScreen(),
+        '/qr_scanner': (context) => const QRScannerScreen(),
       },
     );
   }

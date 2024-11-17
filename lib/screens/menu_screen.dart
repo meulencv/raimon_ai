@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:raimon_ai/screens/qr_scanner_screen.dart';
 import 'package:raimon_ai/screens/team_confirmed_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -117,6 +119,35 @@ class _MenuScreenState extends State<MenuScreen> {
               decoration: const InputDecoration(
                 hintText: "ID del miembro",
                 labelText: "ID del miembro",
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Escanear QR'),
+              onPressed: () async {
+                Navigator.pop(context);
+                final result = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+                );
+
+                if (result != null && mounted) {
+                  if (!_teamMembers.contains(result)) {
+                    setState(() {
+                      _teamMembers.add(result);
+                    });
+                    _showCreateTeamDialog();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Este miembro ya está en el equipo')),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2A9D8F),
+                minimumSize: const Size(double.infinity, 45),
               ),
             ),
             if (_teamMembers.isNotEmpty) ...[
@@ -850,6 +881,70 @@ class _MenuScreenState extends State<MenuScreen> {
     }
   }
 
+  void _showQRDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tu código QR',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2A9D8F),
+                ),
+              ),
+              const SizedBox(height: 20),
+              QrImageView(
+                data: supabase.auth.currentUser!.id,
+                version: QrVersions.auto,
+                size: 200.0,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'ID: ${supabase.auth.currentUser!.id}',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2A9D8F),
+                ),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleQRScan() async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+    );
+
+    if (result != null && mounted) {
+      if (!_teamMembers.contains(result)) {
+        setState(() {
+          _teamMembers.add(result);
+        });
+        _showCreateTeamDialog();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Este miembro ya está en el equipo')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -964,6 +1059,15 @@ class _MenuScreenState extends State<MenuScreen> {
                         onTap: _showCreateTeamDialog,
                         gradient: const LinearGradient(
                           colors: [Color(0xFFE9C46A), Color(0xFFF4A261)],
+                        ),
+                      ),
+                      _buildActionCard(
+                        icon: Icons.qr_code,
+                        title: 'Mi QR',
+                        description: 'Muestra tu código QR para unirte a un equipo',
+                        onTap: _showQRDialog,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4CAF50), Color(0xFF81C784)],
                         ),
                       ),
                     ],
