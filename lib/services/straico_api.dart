@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class StraicoApi {
   static const String _baseUrl = 'https://api.straico.com/v0';
   static const String _apiKey =
-      'B1-4hfzWdOgfW9Jj5kuOcYZqUxnedVYe9ByTAWlOW4AyQZnCJ5Q'; // Reemplaza con tu API key
+      'fc-fPQ7RWskIPoHxjX1eQVnxCIF3qG2OksvT2T7sZjTUFcEiAYd'; // Reemplaza con tu API key
 
   Future<String> getCompletion(String message) async {
     final response = await http.post(
