@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/straico_api.dart';
 import 'dart:convert';
 import 'menu_screen.dart';
+import '../services/form_data_service.dart';
 
 class UserInfo {
   Map<String, dynamic> data = {};
@@ -195,12 +196,17 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _saveUserDataToSupabase() async {
     try {
       final userId = supabase.auth.currentUser!.id;
+      
+      // Obtener datos del formulario inicial
+      final initialFormData = FormDataService.getFormData();
+      Map<String, dynamic> nonFilteringInfo = initialFormData ?? {};
 
-      // Guardar directamente en users_info
+      // Guardar en Supabase (nota el cambio de non_filtering_info a non_filetring_info)
       await supabase.from('users_info').upsert({
         'user_id': userId,
         'scores': _userInfo.data,
-        'looking_for_team': false
+        'looking_for_team': false,
+        'non_filtering_info': nonFilteringInfo // Corregido el nombre de la columna
       });
 
       print('✅ Datos guardados en Supabase exitosamente');

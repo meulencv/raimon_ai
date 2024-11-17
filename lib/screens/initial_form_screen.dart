@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import '../services/form_data_service.dart';
 
 class InitialFormScreen extends StatefulWidget {
   const InitialFormScreen({super.key});
@@ -29,6 +32,25 @@ class _InitialFormScreenState extends State<InitialFormScreen> {
            _shirtSize != null && 
            _dietaryRestrictions != null && 
            _preferredTeamSize != null;
+  }
+
+  Future<void> _continueToChat() async {
+    if (!_isFormValid()) return;
+
+    final formData = {
+      'initial_form_data': {
+        'year_of_study': _yearOfStudy,
+        'shirt_size': _shirtSize,
+        'dietary_restrictions': _dietaryRestrictions,
+        'preferred_team_size': _preferredTeamSize
+      }
+    };
+
+    FormDataService.setFormData(formData);
+    
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/chat');
+    }
   }
 
   @override
@@ -81,7 +103,7 @@ class _InitialFormScreenState extends State<InitialFormScreen> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isFormValid() && !_isLoading 
-                    ? () => Navigator.pushReplacementNamed(context, '/chat')
+                    ? _continueToChat
                     : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2A9D8F),

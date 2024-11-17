@@ -72,9 +72,8 @@ class _MenuScreenState extends State<MenuScreen> {
     setState(() => _isLoading = true);
     try {
       final userId = supabase.auth.currentUser!.id;
-      await supabase.from('users_info').update({
-        'looking_for_team': !_isLookingForTeam
-      }).eq('user_id', userId);
+      await supabase.from('users_info').update(
+          {'looking_for_team': !_isLookingForTeam}).eq('user_id', userId);
 
       setState(() {
         _isLookingForTeam = !_isLookingForTeam;
@@ -99,7 +98,8 @@ class _MenuScreenState extends State<MenuScreen> {
   Future<void> _showAddMemberDialog() async {
     if (_teamMembers.length >= 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El equipo ya tiene el máximo de miembros (4)')),
+        const SnackBar(
+            content: Text('El equipo ya tiene el máximo de miembros (4)')),
       );
       return;
     }
@@ -122,25 +122,27 @@ class _MenuScreenState extends State<MenuScreen> {
             if (_teamMembers.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text('Miembros actuales:'),
-              ...(_teamMembers.map((member) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(member),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: () {
-                            setState(() {
-                              _teamMembers.remove(member);
-                            });
-                            Navigator.pop(context);
-                            _showAddMemberDialog();
-                          },
+              ...(_teamMembers
+                  .map((member) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(member),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: () {
+                                setState(() {
+                                  _teamMembers.remove(member);
+                                });
+                                Navigator.pop(context);
+                                _showAddMemberDialog();
+                              },
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )).toList()),
+                      ))
+                  .toList()),
             ],
           ],
         ),
@@ -154,7 +156,8 @@ class _MenuScreenState extends State<MenuScreen> {
               if (controller.text.isNotEmpty) {
                 if (_teamMembers.contains(controller.text)) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Este miembro ya está en el equipo')),
+                    const SnackBar(
+                        content: Text('Este miembro ya está en el equipo')),
                   );
                   return;
                 }
@@ -172,7 +175,8 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 
-  double _calculateAffinity(Map<String, dynamic> userScores, Map<String, dynamic> otherScores) {
+  double _calculateAffinity(
+      Map<String, dynamic> userScores, Map<String, dynamic> otherScores) {
     double affinity = 0;
     double maxPoints = 0;
 
@@ -186,20 +190,23 @@ class _MenuScreenState extends State<MenuScreen> {
     // Experiencia técnica y lenguajes (35 puntos)
     List<String> userLangs = List<String>.from(userScores['lenguajes'] ?? []);
     List<String> otherLangs = List<String>.from(otherScores['lenguajes'] ?? []);
-    
+
     // Lenguajes en común (15 puntos)
-    int commonLangs = userLangs.where((lang) => otherLangs.contains(lang)).length;
+    int commonLangs =
+        userLangs.where((lang) => otherLangs.contains(lang)).length;
     affinity += (commonLangs / max(userLangs.length, 1)) * 15;
     maxPoints += 15;
 
     // Trabajo en equipo y productividad (25 puntos)
     if (isWinningTeam) {
       // Para equipos competitivos, valoramos similitud
-      int teamDiff = (int.parse(userScores['trabajo_equipo'].toString()) - 
-                     int.parse(otherScores['trabajo_equipo'].toString())).abs();
-      int prodDiff = (int.parse(userScores['productividad'].toString()) - 
-                     int.parse(otherScores['productividad'].toString())).abs();
-      
+      int teamDiff = (int.parse(userScores['trabajo_equipo'].toString()) -
+              int.parse(otherScores['trabajo_equipo'].toString()))
+          .abs();
+      int prodDiff = (int.parse(userScores['productividad'].toString()) -
+              int.parse(otherScores['productividad'].toString()))
+          .abs();
+
       if (teamDiff <= 1) affinity += 15;
       if (prodDiff <= 1) affinity += 10;
     } else {
@@ -210,8 +217,10 @@ class _MenuScreenState extends State<MenuScreen> {
     maxPoints += 25;
 
     // Personalidad (10 puntos)
-    List<String> userPersonality = List<String>.from(userScores['personalidad'] ?? []);
-    List<String> otherPersonality = List<String>.from(otherScores['personalidad'] ?? []);
+    List<String> userPersonality =
+        List<String>.from(userScores['personalidad'] ?? []);
+    List<String> otherPersonality =
+        List<String>.from(otherScores['personalidad'] ?? []);
     int commonTraits = userPersonality
         .where((trait) => otherPersonality.contains(trait))
         .length;
@@ -225,39 +234,50 @@ class _MenuScreenState extends State<MenuScreen> {
     setState(() => _isLoading = true);
     try {
       final userId = supabase.auth.currentUser!.id;
-      
-      // Obtener información del usuario actual
+
+      // Obtener información del usuario actual con todos los campos necesarios
       final userResult = await supabase
           .from('users_info')
-          .select()
+          .select('''
+            *,
+            scores,
+            non_filtering_info
+          ''')
           .eq('user_id', userId)
           .single();
 
-      // Obtener usuarios que buscan equipo
+      // Obtener usuarios que buscan equipo con todos sus campos
       final List<dynamic> otherUsers = await supabase
           .from('users_info')
-          .select()
+          .select('''
+            *,
+            scores,
+            non_filtering_info
+          ''')
           .eq('looking_for_team', true)
           .neq('user_id', userId);
 
+      print('Debug - Datos obtenidos:');
+      print('Usuario actual: $userResult');
+      print('Otros usuarios: $otherUsers');
+
       // Calcular afinidad con cada usuario
       List<Map<String, dynamic>> affinities = [];
-      
+
       for (var other in otherUsers) {
-        // Verificar si el usuario ya está en el equipo
         if (_teamMembers.contains(other['user_id'])) continue;
 
         try {
           if (other['scores'] != null && userResult['scores'] != null) {
             double affinity = _calculateAffinity(
-              Map<String, dynamic>.from(userResult['scores']), 
-              Map<String, dynamic>.from(other['scores'])
-            );
-            
+                Map<String, dynamic>.from(userResult['scores']),
+                Map<String, dynamic>.from(other['scores']));
+
             affinities.add({
               'user_id': other['user_id'],
               'affinity': affinity,
-              'scores': other['scores']
+              'scores': other['scores'],
+              'non_filtering_info': other['non_filtering_info'] // Note la ortografía correcta
             });
           }
         } catch (e) {
@@ -269,7 +289,8 @@ class _MenuScreenState extends State<MenuScreen> {
       // Si no hay usuarios disponibles después de filtrar
       if (affinities.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No hay participantes afines disponibles')),
+          const SnackBar(
+              content: Text('No hay participantes afines disponibles')),
         );
         setState(() => _isLoading = false);
         return;
@@ -283,7 +304,8 @@ class _MenuScreenState extends State<MenuScreen> {
         showDialog(
           context: context,
           builder: (context) => Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -324,7 +346,9 @@ class _MenuScreenState extends State<MenuScreen> {
                     ),
                     child: SingleChildScrollView(
                       child: Column(
-                        children: topMatches.map((match) => _buildAffinityCard(match)).toList(),
+                        children: topMatches
+                            .map((match) => _buildAffinityCard(match))
+                            .toList(),
                       ),
                     ),
                   ),
@@ -355,8 +379,14 @@ class _MenuScreenState extends State<MenuScreen> {
     final double affinity = match['affinity'] as double;
     final Color cardColor = _getAffinityColor(affinity);
     final scores = Map<String, dynamic>.from(match['scores']);
-    
-    return Container(
+
+    // Acceder correctamente a la información del formulario inicial
+    final nonFilteringInfo = match['non_filtering_info'] as Map<String, dynamic>?;
+    final formData = nonFilteringInfo?['initial_form_data'] as Map<String, dynamic>?;
+    final yearOfStudy = formData?['year_of_study'] as String? ?? 'No especificado';
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -382,72 +412,115 @@ class _MenuScreenState extends State<MenuScreen> {
               _showCreateTeamDialog();
             }
           },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: ExpansionTile(
+            title: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${affinity.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'ID: ${match['user_id'].toString().substring(0, 8)}...',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    _buildProfileSection('Experiencia',
+                        scores['experiencia_tecnica'] ?? 'No especificada'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${affinity.toStringAsFixed(1)}%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        if (yearOfStudy != 'No especificado')
+                          _buildSkillChip('👨‍🎓 $yearOfStudy'),
+                        _buildSkillChip(
+                            '👩‍💻 ${scores['lenguajes']?.length ?? 0} lenguajes'),
+                        _buildSkillChip(
+                            '🎯 ${scores['objetivo'] == 'ganar' ? 'Competitivo' : 'Experiencia'}'),
+                        _buildSkillChip(
+                            '🤝 Equipo: ${scores['trabajo_equipo']}/5'),
+                        _buildSkillChip('⚡ Prod: ${scores['productividad']}/5'),
+                        _buildSkillChip('🎨 Creat: ${scores['creatividad']}/5'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.person_add_rounded, size: 18),
+                          label: const Text('Añadir al equipo'),
+                          onPressed: () {
+                            if (!_teamMembers.contains(match['user_id'])) {
+                              setState(
+                                  () => _teamMembers.add(match['user_id']));
+                              Navigator.pop(context);
+                              _showCreateTeamDialog();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: cardColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'ID: ${match['user_id'].toString().substring(0, 8)}...',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.person_add_rounded),
-                      color: cardColor,
-                      onPressed: () {
-                        if (!_teamMembers.contains(match['user_id'])) {
-                          setState(() => _teamMembers.add(match['user_id']));
-                          Navigator.pop(context);
-                          _showCreateTeamDialog();
-                        }
-                      },
-                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildSkillChip('👩‍💻 ${scores['lenguajes']?.length ?? 0} lenguajes'),
-                    _buildSkillChip('🎯 ${scores['objetivo'] == 'ganar' ? 'Competitivo' : 'Experiencia'}'),
-                    _buildSkillChip('🤝 Equipo: ${scores['trabajo_equipo']}/5'),
-                    _buildSkillChip('⚡ Prod: ${scores['productividad']}/5'),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2A9D8F),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          content,
+          style: const TextStyle(fontSize: 14),
+        ),
+      ],
     );
   }
 
@@ -479,7 +552,9 @@ class _MenuScreenState extends State<MenuScreen> {
   Future<void> _createTeam() async {
     if (_teamMembers.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Se necesitan al menos 2 miembros para crear un equipo')),
+        const SnackBar(
+            content:
+                Text('Se necesitan al menos 2 miembros para crear un equipo')),
       );
       return;
     }
@@ -497,10 +572,12 @@ class _MenuScreenState extends State<MenuScreen> {
 
       // 2. Añadir miembros al equipo
       final teamId = teamResponse['id'];
-      final memberInserts = _teamMembers.map((userId) => {
-            'team_id': teamId,
-            'user_id': userId,
-          }).toList();
+      final memberInserts = _teamMembers
+          .map((userId) => {
+                'team_id': teamId,
+                'user_id': userId,
+              })
+          .toList();
 
       await supabase.from('team_members').insert(memberInserts);
 
@@ -570,7 +647,8 @@ class _MenuScreenState extends State<MenuScreen> {
     if (_isLookingForTeam) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No puedes crear un equipo mientras estás buscando uno'),
+          content:
+              Text('No puedes crear un equipo mientras estás buscando uno'),
           backgroundColor: Color(0xFF2A9D8F),
         ),
       );
@@ -692,7 +770,8 @@ class _MenuScreenState extends State<MenuScreen> {
           ),
           if (!isCurrentUser)
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+              icon: const Icon(Icons.remove_circle_outline,
+                  color: Colors.redAccent),
               onPressed: () {
                 setState(() => _teamMembers.remove(member));
                 Navigator.pop(context);
@@ -759,12 +838,13 @@ class _MenuScreenState extends State<MenuScreen> {
     if (hasInterview) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ya has completado la entrevista inicial')),
+          const SnackBar(
+              content: Text('Ya has completado la entrevista inicial')),
         );
       }
       return;
     }
-    
+
     if (mounted) {
       Navigator.pushNamed(context, '/chat');
     }
@@ -820,7 +900,8 @@ class _MenuScreenState extends State<MenuScreen> {
                               ),
                             ),
                             Text(
-                              supabase.auth.currentUser?.email?.split('@')[0] ?? 'usuario',
+                              supabase.auth.currentUser?.email?.split('@')[0] ??
+                                  'usuario',
                               style: const TextStyle(
                                 fontSize: 20,
                                 color: Color(0xFF2A9D8F),
@@ -868,7 +949,8 @@ class _MenuScreenState extends State<MenuScreen> {
                       _buildActionCard(
                         icon: Icons.chat_bubble_outline,
                         title: 'Entrevista Inicial',
-                        description: 'Completa tu perfil para encontrar el equipo perfecto',
+                        description:
+                            'Completa tu perfil para encontrar el equipo perfecto',
                         onTap: _navigateToChat,
                         gradient: const LinearGradient(
                           colors: [Color(0xFF2A9D8F), Color(0xFF264653)],
@@ -877,7 +959,8 @@ class _MenuScreenState extends State<MenuScreen> {
                       _buildActionCard(
                         icon: Icons.group_add_outlined,
                         title: 'Fundar Grupo',
-                        description: 'Crea tu propio equipo y lidera el proyecto',
+                        description:
+                            'Crea tu propio equipo y lidera el proyecto',
                         onTap: _showCreateTeamDialog,
                         gradient: const LinearGradient(
                           colors: [Color(0xFFE9C46A), Color(0xFFF4A261)],
@@ -899,7 +982,8 @@ class _MenuScreenState extends State<MenuScreen> {
                               width: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Row(
@@ -959,7 +1043,8 @@ class _MenuScreenState extends State<MenuScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: (isDisabled ? Colors.grey : gradient.colors.first).withOpacity(0.3),
+              color: (isDisabled ? Colors.grey : gradient.colors.first)
+                  .withOpacity(0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -968,7 +1053,8 @@ class _MenuScreenState extends State<MenuScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: isDisabled ? Colors.white70 : Colors.white, size: 32),
+            Icon(icon,
+                color: isDisabled ? Colors.white70 : Colors.white, size: 32),
             const SizedBox(height: 16),
             Text(
               title,
@@ -980,11 +1066,10 @@ class _MenuScreenState extends State<MenuScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              isDisabled 
-                  ? 'No disponible mientras buscas grupo'
-                  : description,
+              isDisabled ? 'No disponible mientras buscas grupo' : description,
               style: TextStyle(
-                color: (isDisabled ? Colors.white70 : Colors.white).withOpacity(0.9),
+                color: (isDisabled ? Colors.white70 : Colors.white)
+                    .withOpacity(0.9),
                 fontSize: 14,
               ),
             ),
