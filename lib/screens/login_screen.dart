@@ -53,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
           .maybeSingle();
 
       if (teamData != null) {
-        // Si pertenece a un equipo, mostrar pantalla de confirmación
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -66,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
-      // Si no tiene equipo, continuar con el flujo normal
+      // Si no tiene equipo, revisar si tiene información de usuario
       final userData = await Supabase.instance.client
           .from('users_info')
           .select()
@@ -77,13 +76,13 @@ class _LoginScreenState extends State<LoginScreen> {
         if (userData != null) {
           Navigator.of(context).pushReplacementNamed('/menu');
         } else {
-          Navigator.of(context).pushReplacementNamed('/introduction');
+          Navigator.of(context).pushReplacementNamed('/initial_form');
         }
       }
     } catch (e) {
       print('Error verificando usuario: $e');
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/introduction');
+        Navigator.of(context).pushReplacementNamed('/chat');
       }
     }
   }

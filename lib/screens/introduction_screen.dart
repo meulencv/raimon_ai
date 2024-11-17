@@ -138,7 +138,7 @@ class _IntroductionScreenState extends State<IntroductionScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (_currentPage == _pages.length - 1) {
-                            Navigator.pushNamed(context, '/chat');
+                            Navigator.pushReplacementNamed(context, '/chat'); // Cambiado a pushReplacementNamed
                           } else {
                             _pageController.nextPage(
                               duration: const Duration(milliseconds: 300),

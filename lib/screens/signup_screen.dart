@@ -24,8 +24,7 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (mounted) {
-        // Usuario nuevo siempre va al flujo de introducción
-        Navigator.of(context).pushReplacementNamed('/introduction');
+        Navigator.of(context).pushReplacementNamed('/initial_form');
       }
     } catch (e) {
       // ...existing error handling code...
